@@ -1,0 +1,15 @@
+{
+  "short_name": "BegleitApp",
+  "name": "BegleitApp – Schulbegleitung",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2D6A8A",
+  "background_color": "#F7F8FA"
+}
