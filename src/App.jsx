@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 import { getTagInfo, FEIERTAGE_2026, SCHULFERIEN_2026 } from "./feiertage";
 
-const ADMIN_EMAIL = "t.schleich@servus-inklusion.de";
+const ADMIN_EMAIL = "t.schleich@servus-inklusion.de"; // Deine E-Mail hier
 
 const COLORS = {
   primary: "#2D6A8A", primaryLight: "#E8F4FA", primaryDark: "#1A4A63",
@@ -32,18 +32,20 @@ function monatsTage(jahr, monat) {
 }
 const WOCHENTAGE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+
 function wt(datum) { return WOCHENTAGE[new Date(datum).getDay()]; }
 function formatDatum(datum) { return new Date(datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }); }
 
+// UI Komponenten
 function Card({ children, style }) {
-  return <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04)", padding: "20px 24px", ...style }}>{children}</div>;
+  return <div style={{ background: COLORS.white, borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04)", padding: "20px 24px", ...style }}>{children}</div>;
 }
 function Btn({ children, onClick, variant = "primary", small, disabled, style }) {
   const s = {
     primary: { background: COLORS.primary, color: "#fff", border: "none" },
     secondary: { background: COLORS.neutral100, color: COLORS.neutral700, border: "none" },
-    danger: { background: COLORS.dangerLight, color: COLORS.danger, border: "none" },
-    success: { background: COLORS.successLight, color: COLORS.success, border: "none" },
+    danger: { background: COLORS.dangerLight, color: COLORS.danger, border: `1px solid ${COLORS.danger}30` },
+    success: { background: COLORS.successLight, color: COLORS.success, border: `1px solid ${COLORS.success}30` },
     ghost: { background: "transparent", color: COLORS.primary, border: `1.5px solid ${COLORS.primary}` },
   };
   return <button onClick={onClick} disabled={disabled} style={{ ...s[variant], borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", padding: small ? "5px 12px" : "9px 18px", fontSize: small ? 12 : 14, fontWeight: 600, opacity: disabled ? 0.5 : 1, ...style }}>{children}</button>;
@@ -56,6 +58,9 @@ function Input({ label, value, onChange, type = "text", placeholder }) {
         style={{ width: "100%", padding: "8px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14, boxSizing: "border-box" }} />
     </div>
   );
+}
+function Avatar({ initials, size = 36 }) {
+  return <div style={{ width: size, height: size, borderRadius: size, background: COLORS.primary + "20", color: COLORS.primary, fontWeight: 700, fontSize: size * 0.38, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials}</div>;
 }
 function Badge({ color = COLORS.primary, bg, children }) {
   return <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, color, background: bg || color + "18" }}>{children}</span>;
@@ -72,30 +77,37 @@ const Icon = {
   dashboard: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
   nachweis: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>,
   team: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  shield: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
   plus: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   warn: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-  shield: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  swap: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>,
+  doc: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
 };
 
+// ══════════════════════════════════════════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════════════════════════════════════════
 function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState("login");
+  const [mode, setMode] = useState("login"); // login | register
 
   async function handleLogin() {
     setLoading(true); setErr("");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
     if (error) { setErr("E-Mail oder Passwort falsch."); setLoading(false); return; }
-    onLogin(data.user); setLoading(false);
+    onLogin(data.user);
+    setLoading(false);
   }
 
   async function handleRegister() {
     setLoading(true); setErr("");
-    const { error } = await supabase.auth.signUp({ email, password: pw });
+    const { data, error } = await supabase.auth.signUp({ email, password: pw });
     if (error) { setErr(error.message); setLoading(false); return; }
-    setErr("✅ Bestätigungsmail gesendet!"); setLoading(false);
+    setErr("✅ Bestätigungsmail gesendet! Bitte E-Mail bestätigen.");
+    setLoading(false);
   }
 
   return (
@@ -119,20 +131,29 @@ function LoginScreen({ onLogin }) {
           <Btn onClick={mode === "login" ? handleLogin : handleRegister} disabled={loading} style={{ width: "100%", marginBottom: 12 }}>
             {loading ? "Bitte warten..." : mode === "login" ? "Anmelden" : "Registrieren"}
           </Btn>
-          <button onClick={() => setMode(m => m === "login" ? "register" : "login")} style={{ background: "none", border: "none", color: COLORS.primary, fontSize: 13, cursor: "pointer", width: "100%", textAlign: "center" }}>
+          <button onClick={() => setMode(m => m === "login" ? "register" : "login")}
+            style={{ background: "none", border: "none", color: COLORS.primary, fontSize: 13, cursor: "pointer", width: "100%", textAlign: "center" }}>
             {mode === "login" ? "Noch kein Account? Registrieren" : "Bereits registriert? Anmelden"}
           </button>
         </Card>
         <p style={{ textAlign: "center", marginTop: 16, fontSize: 12, color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-          {Icon.shield} DSGVO-konform · Daten in Europa
+          {Icon.shield} DSGVO-konform · Daten in Europa gespeichert
         </p>
       </div>
     </div>
-  );function AdminBereich() {
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN BEREICH
+// ══════════════════════════════════════════════════════════════════════════════
+function AdminBereich() {
   const [tab, setTab] = useState("mitarbeiter");
   const [mitarbeiter, setMitarbeiter] = useState([]);
   const [kinder, setKinder] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", einrichtung: "", role: "begleiter" });
   const [kindForm, setKindForm] = useState({ kuerzel: "", schule: "", klasse: "", begleiter_id: "" });
   const [showKindForm, setShowKindForm] = useState(false);
   const [msg, setMsg] = useState("");
@@ -152,7 +173,7 @@ function LoginScreen({ onLogin }) {
     if (!kindForm.kuerzel || !kindForm.schule) return;
     const { error } = await supabase.from("kinder").insert([kindForm]);
     if (!error) { setMsg("✅ Kind gespeichert!"); setKindForm({ kuerzel: "", schule: "", klasse: "", begleiter_id: "" }); setShowKindForm(false); ladeDaten(); }
-    else setMsg("❌ " + error.message);
+    else setMsg("❌ Fehler: " + error.message);
   }
 
   if (loading) return <Spinner />;
@@ -160,81 +181,113 @@ function LoginScreen({ onLogin }) {
   return (
     <div>
       <h2 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 700 }}>⚙️ Admin-Bereich</h2>
+
+      {/* Tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         {["mitarbeiter", "kinder", "ferien"].map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{ padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600, background: tab === t ? COLORS.primary : COLORS.neutral100, color: tab === t ? "#fff" : COLORS.neutral700 }}>
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
+            background: tab === t ? COLORS.primary : COLORS.neutral100,
+            color: tab === t ? "#fff" : COLORS.neutral700,
+          }}>
             {t === "mitarbeiter" ? "👤 Mitarbeiter" : t === "kinder" ? "🧒 Kinder" : "🏖 Ferien"}
           </button>
         ))}
       </div>
+
       {msg && <div style={{ padding: "10px 14px", borderRadius: 8, background: msg.startsWith("✅") ? COLORS.successLight : COLORS.dangerLight, color: msg.startsWith("✅") ? COLORS.success : COLORS.danger, marginBottom: 16, fontSize: 13 }}>{msg}</div>}
 
+      {/* Mitarbeiter Tab */}
       {tab === "mitarbeiter" && (
-        <Card>
-          <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700 }}>Mitarbeiter ({mitarbeiter.length})</h3>
-          <p style={{ fontSize: 13, color: COLORS.neutral500, marginBottom: 16 }}>Mitarbeiter müssen sich zuerst selbst registrieren. Danach erscheinen sie hier.</p>
-          {mitarbeiter.length === 0 && <p style={{ color: COLORS.neutral500, textAlign: "center", padding: "20px 0" }}>Noch keine Mitarbeiter registriert</p>}
-          {mitarbeiter.map(m => (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: COLORS.neutral50, borderRadius: 10, marginBottom: 8 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 36, background: COLORS.primary + "20", color: COLORS.primary, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {(m.name || m.email || "?").slice(0, 2).toUpperCase()}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name || "Kein Name"}</div>
-                <div style={{ fontSize: 12, color: COLORS.neutral500 }}>{m.email}</div>
-              </div>
-              <Badge color={m.role === "admin" ? COLORS.accent : COLORS.primary}>{m.role || "begleiter"}</Badge>
+        <div>
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Mitarbeiter ({mitarbeiter.length})</h3>
+              <Btn small onClick={() => setShowForm(s => !s)} style={{ display: "flex", alignItems: "center", gap: 6 }}>{Icon.plus} Einladen</Btn>
             </div>
-          ))}
-        </Card>
+            {showForm && (
+              <div style={{ padding: "16px", background: COLORS.neutral50, borderRadius: 10, marginBottom: 16 }}>
+                <p style={{ fontSize: 13, color: COLORS.neutral500, margin: "0 0 12px" }}>
+                  Mitarbeiter müssen sich zuerst selbst registrieren. Danach erscheinen sie hier und du kannst ihre Rolle und Daten bearbeiten.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
+                  <Input label="Name" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} />
+                  <Input label="Einrichtung" value={form.einrichtung} onChange={v => setForm(f => ({ ...f, einrichtung: v }))} />
+                </div>
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {mitarbeiter.length === 0 && <p style={{ color: COLORS.neutral500, textAlign: "center", padding: "20px 0", fontSize: 14 }}>Noch keine Mitarbeiter registriert</p>}
+              {mitarbeiter.map(m => (
+                <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: COLORS.neutral50, borderRadius: 10 }}>
+                  <Avatar initials={(m.name || "?").slice(0, 2).toUpperCase()} size={36} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name || "Kein Name"}</div>
+                    <div style={{ fontSize: 12, color: COLORS.neutral500 }}>{m.email} · {m.einrichtung || "–"}</div>
+                  </div>
+                  <Badge color={m.role === "admin" ? COLORS.accent : COLORS.primary}>{m.role}</Badge>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
       )}
 
+      {/* Kinder Tab */}
       {tab === "kinder" && (
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Kinder ({kinder.length})</h3>
-            <Btn small onClick={() => setShowKindForm(s => !s)} style={{ display: "flex", alignItems: "center", gap: 6 }}>{Icon.plus} Anlegen</Btn>
-          </div>
-          {showKindForm && (
-            <div style={{ padding: 16, background: COLORS.neutral50, borderRadius: 10, marginBottom: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
-                <Input label="Kürzel (z.B. K005)" value={kindForm.kuerzel} onChange={v => setKindForm(f => ({ ...f, kuerzel: v }))} />
-                <Input label="Klasse" value={kindForm.klasse} onChange={v => setKindForm(f => ({ ...f, klasse: v }))} />
-                <div style={{ gridColumn: "1/-1" }}><Input label="Schule / Einrichtung" value={kindForm.schule} onChange={v => setKindForm(f => ({ ...f, schule: v }))} /></div>
-                <div style={{ gridColumn: "1/-1" }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Begleiter/in</label>
-                  <select value={kindForm.begleiter_id} onChange={e => setKindForm(f => ({ ...f, begleiter_id: e.target.value }))}
-                    style={{ width: "100%", padding: "8px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14, marginBottom: 12 }}>
-                    <option value="">– wählen –</option>
-                    {mitarbeiter.map(m => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <Btn onClick={kindSpeichern} disabled={!kindForm.kuerzel || !kindForm.schule}>Speichern</Btn>
-                <Btn variant="secondary" onClick={() => setShowKindForm(false)}>Abbrechen</Btn>
-              </div>
+        <div>
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Kinder ({kinder.length})</h3>
+              <Btn small onClick={() => setShowKindForm(s => !s)} style={{ display: "flex", alignItems: "center", gap: 6 }}>{Icon.plus} Kind anlegen</Btn>
             </div>
-          )}
-          {kinder.map(k => {
-            const begl = mitarbeiter.find(m => m.id === k.begleiter_id);
-            return (
-              <div key={k.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", background: COLORS.neutral50, borderRadius: 10, marginBottom: 8 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.primaryLight, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: COLORS.primary, fontSize: 11 }}>{k.kuerzel}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{k.schule} · Kl. {k.klasse}</div>
-                  <div style={{ fontSize: 12, color: COLORS.neutral500 }}>{begl ? begl.name || begl.email : "Kein Begleiter"}</div>
+            {showKindForm && (
+              <div style={{ padding: 16, background: COLORS.neutral50, borderRadius: 10, marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
+                  <Input label="Kürzel (z.B. K005)" value={kindForm.kuerzel} onChange={v => setKindForm(f => ({ ...f, kuerzel: v }))} />
+                  <Input label="Klasse" value={kindForm.klasse} onChange={v => setKindForm(f => ({ ...f, klasse: v }))} />
+                  <div style={{ gridColumn: "1/-1" }}>
+                    <Input label="Schule / Einrichtung" value={kindForm.schule} onChange={v => setKindForm(f => ({ ...f, schule: v }))} />
+                  </div>
+                  <div style={{ gridColumn: "1/-1" }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Zuständige/r Begleiter/in</label>
+                    <select value={kindForm.begleiter_id} onChange={e => setKindForm(f => ({ ...f, begleiter_id: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14, marginBottom: 12 }}>
+                      <option value="">– wählen –</option>
+                      {mitarbeiter.map(m => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <Btn onClick={kindSpeichern} disabled={!kindForm.kuerzel || !kindForm.schule}>Speichern</Btn>
+                  <Btn variant="secondary" onClick={() => setShowKindForm(false)}>Abbrechen</Btn>
                 </div>
               </div>
-            );
-          })}
-        </Card>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {kinder.length === 0 && <p style={{ color: COLORS.neutral500, textAlign: "center", padding: "20px 0", fontSize: 14 }}>Noch keine Kinder angelegt</p>}
+              {kinder.map(k => {
+                const begl = mitarbeiter.find(m => m.id === k.begleiter_id);
+                return (
+                  <div key={k.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", background: COLORS.neutral50, borderRadius: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.primaryLight, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: COLORS.primary, fontSize: 11 }}>{k.kuerzel}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{k.schule} · Kl. {k.klasse}</div>
+                      <div style={{ fontSize: 12, color: COLORS.neutral500 }}>{begl ? begl.name || begl.email : "Kein Begleiter"}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
       )}
 
+      {/* Ferien Tab */}
       {tab === "ferien" && (
         <div>
           <Card style={{ marginBottom: 16 }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700 }}>🏖 Schulferien Bayern 2026</h3>
+            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700 }}>🏖 Bayerische Schulferien 2026</h3>
             {SCHULFERIEN_2026.map(f => (
               <div key={f.von} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${COLORS.neutral100}` }}>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{f.name}</span>
@@ -243,7 +296,7 @@ function LoginScreen({ onLogin }) {
             ))}
           </Card>
           <Card>
-            <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700 }}>🎉 Feiertage Bayern 2026</h3>
+            <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700 }}>🎉 Bayerische Feiertage 2026</h3>
             {FEIERTAGE_2026.map(f => (
               <div key={f.datum} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${COLORS.neutral100}` }}>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{f.name}</span>
@@ -257,7 +310,10 @@ function LoginScreen({ onLogin }) {
   );
 }
 
-function Betreuungsnachweis({ user }) {
+// ══════════════════════════════════════════════════════════════════════════════
+// BETREUUNGSNACHWEIS MIT SUPABASE
+// ══════════════════════════════════════════════════════════════════════════════
+function Betreuungsnachweis({ user, isAdmin }) {
   const jetzt = new Date();
   const [jahr, setJahr] = useState(jetzt.getFullYear());
   const [monat, setMonat] = useState(jetzt.getMonth() + 1);
@@ -280,21 +336,27 @@ function Betreuungsnachweis({ user }) {
   }
 
   async function ladeEintraege() {
-    const von = `${jahr}-${String(monat).padStart(2, "0")}-01`;
-    const bis = `${jahr}-${String(monat).padStart(2, "0")}-31`;
-    const { data } = await supabase.from("zeiteintraege").select("*").eq("user_id", user.id).eq("kind_id", kindId).gte("datum", von).lte("datum", bis);
+    const vonDatum = `${jahr}-${String(monat).padStart(2, "0")}-01`;
+    const bisDatum = `${jahr}-${String(monat).padStart(2, "0")}-31`;
+    const { data } = await supabase.from("zeiteintraege")
+      .select("*").eq("user_id", user.id).eq("kind_id", kindId)
+      .gte("datum", vonDatum).lte("datum", bisDatum);
     setEintraege(data || []);
   }
 
   async function ladeBudget() {
-    const { data } = await supabase.from("budgets").select("*").eq("user_id", user.id).eq("kind_id", kindId).eq("jahr", jahr).eq("monat", monat).single();
+    const { data } = await supabase.from("budgets")
+      .select("*").eq("user_id", user.id).eq("kind_id", kindId)
+      .eq("jahr", jahr).eq("monat", monat).single();
     setBudget(data?.geplante_stunden || 0);
   }
 
   async function updateBudget(val) {
     const v = parseFloat(val) || 0;
     setBudget(v);
-    await supabase.from("budgets").upsert({ user_id: user.id, kind_id: kindId, jahr, monat, geplante_stunden: v }, { onConflict: "user_id,kind_id,jahr,monat" });
+    await supabase.from("budgets").upsert({
+      user_id: user.id, kind_id: kindId, jahr, monat, geplante_stunden: v
+    }, { onConflict: "user_id,kind_id,jahr,monat" });
   }
 
   async function updateEintrag(datum, feld, wert) {
@@ -315,6 +377,7 @@ function Betreuungsnachweis({ user }) {
   const gesamtStunden = stundenProTag.reduce((s, h) => s + h, 0);
   const ueberschritten = budget > 0 && gesamtStunden > budget;
   const auslastung = budget > 0 ? (gesamtStunden / budget) * 100 : 0;
+
   const kind = kinder.find(k => k.id === kindId);
   const tdBase = { padding: "4px 6px", fontSize: 13, borderBottom: `1px solid ${COLORS.neutral100}`, verticalAlign: "middle" };
   const thBase = { padding: "7px 6px", fontSize: 11, fontWeight: 700, color: COLORS.neutral500, borderBottom: `2px solid ${COLORS.neutral300}`, background: COLORS.neutral50, textAlign: "left" };
@@ -324,10 +387,12 @@ function Betreuungsnachweis({ user }) {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Betreuungsnachweis {saving && <span style={{ fontSize: 13, color: COLORS.neutral500 }}>💾...</span>}</h2>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Betreuungsnachweis {saving && <span style={{ fontSize: 13, color: COLORS.neutral500 }}>💾 Speichert...</span>}</h2>
         <Btn variant="secondary" small onClick={() => setDruckModus(d => !d)}>🖨 {druckModus ? "Bearbeiten" : "Druckansicht"}</Btn>
       </div>
-      <Card style={{ marginBottom: 16, padding: "14px 18px" }}>
+
+      {/* Filter */}
+      <Card style={{ marginBottom: 20, padding: "14px 18px" }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Kind</label>
@@ -354,30 +419,40 @@ function Betreuungsnachweis({ user }) {
           </div>
         </div>
       </Card>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 14 }}>
+
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16 }}>
         {[
           { label: "Geplant", value: fmtHDez(budget), color: COLORS.primary, bg: COLORS.primaryLight },
           { label: "Erfasst", value: fmtHDez(gesamtStunden), color: ueberschritten ? COLORS.danger : COLORS.success, bg: ueberschritten ? COLORS.dangerLight : COLORS.successLight },
           { label: "Verbleibend", value: fmtHDez(Math.max(0, budget - gesamtStunden)), color: COLORS.warning, bg: COLORS.warningLight },
           { label: "Auslastung", value: budget > 0 ? auslastung.toFixed(0) + "%" : "–", color: ueberschritten ? COLORS.danger : COLORS.neutral700, bg: COLORS.neutral100 },
         ].map(s => (
-          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: "12px 14px" }}>
-            <div style={{ fontSize: 19, fontWeight: 800, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 11, color: COLORS.neutral500, marginTop: 2 }}>{s.label}</div>
+          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: "12px 16px" }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: COLORS.neutral500, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
+
+      {/* Fortschrittsbalken */}
       {budget > 0 && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 16 }}>
           <div style={{ height: 8, background: COLORS.neutral100, borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ height: "100%", borderRadius: 10, width: Math.min(auslastung, 100) + "%", background: ueberschritten ? COLORS.danger : auslastung > 85 ? COLORS.warning : COLORS.success }} />
+            <div style={{ height: "100%", borderRadius: 10, width: Math.min(auslastung, 100) + "%", background: ueberschritten ? COLORS.danger : auslastung > 85 ? COLORS.warning : COLORS.success, transition: "width 0.4s" }} />
           </div>
-          {ueberschritten && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "9px 13px", background: COLORS.dangerLight, borderRadius: 8, color: COLORS.danger, fontSize: 13, fontWeight: 600 }}>{Icon.warn} Budget überschritten! +{fmtHDez(gesamtStunden - budget)}</div>}
+          {ueberschritten && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "9px 13px", background: COLORS.dangerLight, borderRadius: 8, color: COLORS.danger, fontSize: 13, fontWeight: 600 }}>
+              {Icon.warn} Stundenbudget überschritten! +{fmtHDez(gesamtStunden - budget)}
+            </div>
+          )}
         </div>
       )}
+
+      {/* Tabelle */}
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px", background: COLORS.primaryLight, borderBottom: `2px solid ${COLORS.neutral100}` }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 800, color: COLORS.primaryDark, textAlign: "center" }}>Betreuungsnachweis</h3>
+        <div style={{ padding: "16px 20px", background: COLORS.primaryLight, borderBottom: `2px solid ${COLORS.neutral100}` }}>
+          <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 800, color: COLORS.primaryDark, textAlign: "center" }}>Betreuungsnachweis</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 20px", fontSize: 13 }}>
             <div><span style={{ color: COLORS.neutral500 }}>Betreuer/in: </span><strong>{user.email}</strong></div>
             <div><span style={{ color: COLORS.neutral500 }}>Monat/Jahr: </span><strong>{MONATE[monat - 1]} {jahr}</strong></div>
@@ -385,23 +460,27 @@ function Betreuungsnachweis({ user }) {
             <div><span style={{ color: COLORS.neutral500 }}>Einrichtung: </span><strong>{kind?.schule}</strong></div>
           </div>
         </div>
-        <div style={{ padding: "6px 14px", background: COLORS.neutral50, display: "flex", gap: 14, fontSize: 11, borderBottom: `1px solid ${COLORS.neutral100}`, flexWrap: "wrap" }}>
+
+        {/* Legende */}
+        <div style={{ padding: "8px 16px", background: COLORS.neutral50, display: "flex", gap: 16, fontSize: 11, borderBottom: `1px solid ${COLORS.neutral100}` }}>
+          <span>⬜ Arbeitstag</span>
           <span style={{ color: COLORS.ferien }}>🟣 Schulferien</span>
           <span style={{ color: COLORS.accent }}>🟡 Feiertag</span>
           <span style={{ color: COLORS.neutral400 }}>⬛ Wochenende</span>
         </div>
+
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
             <thead>
               <tr>
                 <th style={{ ...thBase, width: 32 }}>Tag</th>
                 <th style={{ ...thBase, width: 85 }}>Datum</th>
-                <th style={{ ...thBase }}>Info</th>
+                <th style={{ ...thBase, borderLeft: `2px solid ${COLORS.primary}20` }}>Info</th>
                 <th style={{ ...thBase, width: 75 }}>Von</th>
                 <th style={{ ...thBase, width: 75 }}>Bis</th>
                 <th style={{ ...thBase, width: 55 }}>Pause</th>
                 <th style={{ ...thBase, width: 65, color: COLORS.primary }}>Std.</th>
-                <th style={{ ...thBase, width: 75, color: COLORS.warning }}>FZ Von</th>
+                <th style={{ ...thBase, width: 75, borderLeft: `2px solid ${COLORS.accent}30`, color: COLORS.warning }}>FZ Von</th>
                 <th style={{ ...thBase, width: 75, color: COLORS.warning }}>FZ Bis</th>
                 <th style={{ ...thBase, color: COLORS.warning }}>Grund</th>
               </tr>
@@ -415,35 +494,46 @@ function Betreuungsnachweis({ user }) {
                 if (tagInfo.typ === "ferien") rowBg = COLORS.ferienLight;
                 else if (tagInfo.typ === "feiertag") rowBg = COLORS.accentLight;
                 else if (tagInfo.typ === "wochenende") rowBg = COLORS.neutral50;
+
                 return (
                   <tr key={e.datum} style={{ background: rowBg }}>
                     <td style={{ ...tdBase, fontWeight: 700, fontSize: 11, color: COLORS.neutral500 }}>{wt(e.datum)}</td>
                     <td style={{ ...tdBase, fontSize: 12 }}>{formatDatum(e.datum)}</td>
-                    <td style={{ ...tdBase, fontSize: 11, color: tagInfo.typ === "feiertag" ? COLORS.accent : tagInfo.typ === "ferien" ? COLORS.ferien : COLORS.neutral300 }}>{tagInfo.grund || ""}</td>
+                    <td style={{ ...tdBase, fontSize: 11, color: tagInfo.frei ? (tagInfo.typ === "feiertag" ? COLORS.accent : tagInfo.typ === "ferien" ? COLORS.ferien : COLORS.neutral400) : COLORS.neutral300, borderLeft: `2px solid ${COLORS.primary}20` }}>
+                      {tagInfo.grund || ""}
+                    </td>
                     <td style={{ ...tdBase, padding: "2px 4px" }}>
                       {druckModus || tagInfo.frei ? <span style={{ fontSize: 12, opacity: tagInfo.frei ? 0.4 : 1 }}>{e.von || "–"}</span> :
-                        <input type="time" value={e.von || ""} onChange={ev => updateEintrag(e.datum, "von", ev.target.value)} style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
+                        <input type="time" value={e.von || ""} onChange={ev => updateEintrag(e.datum, "von", ev.target.value)}
+                          style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
                     </td>
                     <td style={{ ...tdBase, padding: "2px 4px" }}>
                       {druckModus || tagInfo.frei ? <span style={{ fontSize: 12, opacity: tagInfo.frei ? 0.4 : 1 }}>{e.bis || "–"}</span> :
-                        <input type="time" value={e.bis || ""} onChange={ev => updateEintrag(e.datum, "bis", ev.target.value)} style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
+                        <input type="time" value={e.bis || ""} onChange={ev => updateEintrag(e.datum, "bis", ev.target.value)}
+                          style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
                     </td>
                     <td style={{ ...tdBase, padding: "2px 4px" }}>
                       {druckModus || tagInfo.frei ? <span style={{ fontSize: 12, opacity: tagInfo.frei ? 0.4 : 1 }}>{e.pause ? e.pause + "'" : "–"}</span> :
-                        <input type="number" min={0} step={5} value={e.pause || ""} onChange={ev => updateEintrag(e.datum, "pause", Number(ev.target.value))} placeholder="0" style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
+                        <input type="number" min={0} step={5} value={e.pause || ""} onChange={ev => updateEintrag(e.datum, "pause", Number(ev.target.value))} placeholder="0"
+                          style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
                     </td>
-                    <td style={{ ...tdBase, fontWeight: 700, color: hatEintrag ? COLORS.primary : COLORS.neutral300 }}>{hatEintrag ? h.toFixed(2) : "–"}</td>
-                    <td style={{ ...tdBase, padding: "2px 4px" }}>
-                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 11, opacity: 0.4 }}>{e.fehl_von || "–"}</span> :
-                        <input type="time" value={e.fehl_von || ""} onChange={ev => updateEintrag(e.datum, "fehl_von", ev.target.value)} style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
+                    <td style={{ ...tdBase, fontWeight: 700, color: hatEintrag ? COLORS.primary : COLORS.neutral300, fontSize: 13 }}>
+                      {hatEintrag ? h.toFixed(2) : tagInfo.frei ? <span style={{ fontSize: 10, color: COLORS.neutral300 }}>–</span> : "–"}
+                    </td>
+                    <td style={{ ...tdBase, padding: "2px 4px", borderLeft: `2px solid ${COLORS.accent}30` }}>
+                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 12, opacity: 0.4 }}>{e.fehl_von || "–"}</span> :
+                        <input type="time" value={e.fehl_von || ""} onChange={ev => updateEintrag(e.datum, "fehl_von", ev.target.value)}
+                          style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
                     </td>
                     <td style={{ ...tdBase, padding: "2px 4px" }}>
-                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 11, opacity: 0.4 }}>{e.fehl_bis || "–"}</span> :
-                        <input type="time" value={e.fehl_bis || ""} onChange={ev => updateEintrag(e.datum, "fehl_bis", ev.target.value)} style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
+                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 12, opacity: 0.4 }}>{e.fehl_bis || "–"}</span> :
+                        <input type="time" value={e.fehl_bis || ""} onChange={ev => updateEintrag(e.datum, "fehl_bis", ev.target.value)}
+                          style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
                     </td>
                     <td style={{ ...tdBase, padding: "2px 4px" }}>
                       {druckModus || tagInfo.frei ? <span style={{ fontSize: 11, opacity: 0.4 }}>{e.fehl_grund || ""}</span> :
-                        <input type="text" value={e.fehl_grund || ""} onChange={ev => updateEintrag(e.datum, "fehl_grund", ev.target.value)} placeholder="Grund..." style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
+                        <input type="text" value={e.fehl_grund || ""} onChange={ev => updateEintrag(e.datum, "fehl_grund", ev.target.value)} placeholder="Grund..."
+                          style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
                     </td>
                   </tr>
                 );
@@ -451,16 +541,20 @@ function Betreuungsnachweis({ user }) {
             </tbody>
             <tfoot>
               <tr style={{ background: COLORS.primaryLight }}>
-                <td colSpan={4} style={{ ...tdBase, fontWeight: 700, borderTop: `2px solid ${COLORS.primary}30` }}>Geplant: <strong>{fmtHDez(budget)}</strong></td>
+                <td colSpan={4} style={{ ...tdBase, fontWeight: 700, fontSize: 13, borderTop: `2px solid ${COLORS.primary}30` }}>
+                  Geplant: <strong>{fmtHDez(budget)}</strong>
+                </td>
                 <td colSpan={2} style={{ ...tdBase, fontWeight: 700, borderTop: `2px solid ${COLORS.primary}30` }}>Gesamt:</td>
                 <td style={{ ...tdBase, fontWeight: 800, fontSize: 14, color: ueberschritten ? COLORS.danger : COLORS.success, borderTop: `2px solid ${COLORS.primary}30` }}>{fmtHDez(gesamtStunden)}</td>
-                <td colSpan={3} style={{ ...tdBase, fontSize: 12, color: ueberschritten ? COLORS.danger : COLORS.neutral500, borderTop: `2px solid ${COLORS.primary}30` }}>
+                <td colSpan={3} style={{ ...tdBase, fontWeight: 600, fontSize: 12, color: ueberschritten ? COLORS.danger : COLORS.neutral500, borderTop: `2px solid ${COLORS.primary}30`, borderLeft: `2px solid ${COLORS.accent}30` }}>
                   {ueberschritten ? `⚠️ +${fmtHDez(gesamtStunden - budget)} über Budget` : `✓ Noch ${fmtHDez(budget - gesamtStunden)} verfügbar`}
                 </td>
               </tr>
             </tfoot>
           </table>
         </div>
+
+        {/* Unterschrift */}
         <div style={{ padding: "20px 24px", borderTop: `2px solid ${COLORS.neutral100}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
           <div><div style={{ borderTop: `1.5px solid ${COLORS.neutral700}`, marginTop: 40, paddingTop: 6 }}><span style={{ fontSize: 12, color: COLORS.neutral500 }}>Unterschrift Betreuer/in</span></div></div>
           <div><div style={{ borderTop: `1.5px solid ${COLORS.neutral700}`, marginTop: 40, paddingTop: 6 }}><span style={{ fontSize: 12, color: COLORS.neutral500 }}>Unterschrift + Stempel Einrichtung</span></div></div>
@@ -470,49 +564,76 @@ function Betreuungsnachweis({ user }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════════════════════════════
 function Dashboard({ user, isAdmin, onNavigate }) {
   const [kinder, setKinder] = useState([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    supabase.from("kinder").select("*").eq("begleiter_id", user.id).then(({ data }) => { setKinder(data || []); setLoading(false); });
+    async function laden() {
+      const { data } = await supabase.from("kinder").select("*").eq("begleiter_id", user.id);
+      setKinder(data || []);
+      setLoading(false);
+    }
+    laden();
   }, []);
+
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800 }}>Guten Tag 👋</h2>
         <p style={{ margin: 0, color: COLORS.neutral500, fontSize: 14 }}>{new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
       </div>
+
       {isAdmin && (
         <Card style={{ marginBottom: 16, background: COLORS.accentLight, border: `1.5px solid ${COLORS.accent}40` }}>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <span style={{ fontSize: 24 }}>⚙️</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700 }}>Admin-Bereich</div>
+            <div>
+              <div style={{ fontWeight: 700 }}>Admin-Bereich verfügbar</div>
               <div style={{ fontSize: 13, color: COLORS.neutral600 }}>Mitarbeiter, Kinder & Budgets verwalten</div>
             </div>
-            <Btn small variant="ghost" onClick={() => onNavigate("admin")}>Öffnen →</Btn>
+            <Btn small variant="ghost" onClick={() => onNavigate("admin")} style={{ marginLeft: "auto" }}>Öffnen →</Btn>
           </div>
         </Card>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
-        <Card style={{ padding: "16px 18px" }}><div style={{ fontSize: 24 }}>🧒</div><div style={{ fontSize: 26, fontWeight: 800, color: COLORS.primary, marginTop: 6 }}>{loading ? "..." : kinder.length}</div><div style={{ fontSize: 12, color: COLORS.neutral500 }}>Betreute Kinder</div></Card>
-        <Card style={{ padding: "16px 18px" }}><div style={{ fontSize: 24 }}>📋</div><div style={{ fontSize: 26, fontWeight: 800, color: COLORS.success, marginTop: 6 }}>{kinder.length}</div><div style={{ fontSize: 12, color: COLORS.neutral500 }}>Nachweise</div></Card>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <Card style={{ padding: "16px 18px" }}>
+          <div style={{ fontSize: 24 }}>🧒</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: COLORS.primary, marginTop: 6 }}>{loading ? "..." : kinder.length}</div>
+          <div style={{ fontSize: 12, color: COLORS.neutral500 }}>Betreute Kinder</div>
+        </Card>
+        <Card style={{ padding: "16px 18px" }}>
+          <div style={{ fontSize: 24 }}>📋</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: COLORS.success, marginTop: 6 }}>{kinder.length}</div>
+          <div style={{ fontSize: 12, color: COLORS.neutral500 }}>Nachweise</div>
+        </Card>
       </div>
+
       {!loading && kinder.length === 0 && (
         <Card style={{ background: COLORS.primaryLight, border: `1.5px solid ${COLORS.primary}30` }}>
           <div style={{ textAlign: "center", padding: "10px 0" }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>🤝</div>
             <div style={{ fontWeight: 700, color: COLORS.primary }}>Willkommen bei BegleitApp!</div>
-            <div style={{ fontSize: 13, color: COLORS.neutral500, marginTop: 4 }}>{isAdmin ? "Lege im Admin-Bereich Kinder und Mitarbeiter an." : "Der Admin weist dir bald Kinder zu."}</div>
+            <div style={{ fontSize: 13, color: COLORS.neutral500, marginTop: 4 }}>
+              {isAdmin ? "Lege im Admin-Bereich Kinder und Mitarbeiter an." : "Der Admin weist dir bald Kinder zu."}
+            </div>
           </div>
         </Card>
       )}
+
       {kinder.length > 0 && (
         <Card>
           <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Meine Kinder</h3>
           {kinder.map(k => (
             <div key={k.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${COLORS.neutral100}` }}>
-              <div><span style={{ fontWeight: 700 }}>{k.kuerzel}</span><span style={{ fontSize: 13, color: COLORS.neutral500, marginLeft: 10 }}>{k.schule} · Kl. {k.klasse}</span></div>
+              <div>
+                <span style={{ fontWeight: 700 }}>{k.kuerzel}</span>
+                <span style={{ fontSize: 13, color: COLORS.neutral500, marginLeft: 10 }}>{k.schule} · Kl. {k.klasse}</span>
+              </div>
               <Btn variant="ghost" small onClick={() => onNavigate("nachweis")}>Nachweis →</Btn>
             </div>
           ))}
@@ -522,34 +643,55 @@ function Dashboard({ user, isAdmin, onNavigate }) {
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// HAUPT APP
+// ══════════════════════════════════════════════════════════════════════════════
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState("dashboard");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user || null); setLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+      setLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div>;
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUser(null);
+  }
+
+  if (loading) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui" }}>
+      <Spinner />
+    </div>
+  );
+
   if (!user) return <LoginScreen onLogin={setUser} />;
 
   const isAdmin = user.email === ADMIN_EMAIL;
+
   const NAV = [
     { id: "dashboard", label: "Übersicht", icon: Icon.dashboard },
     { id: "nachweis", label: "Nachweis", icon: Icon.nachweis },
     ...(isAdmin ? [{ id: "admin", label: "Admin", icon: Icon.team }] : []),
   ];
+
   const pages = {
     dashboard: <Dashboard user={user} isAdmin={isAdmin} onNavigate={setPage} />,
-    nachweis: <Betreuungsnachweis user={user} />,
-    admin: isAdmin ? <AdminBereich /> : null,
+    nachweis: <Betreuungsnachweis user={user} isAdmin={isAdmin} />,
+    admin: isAdmin ? <AdminBereich /> : <Dashboard user={user} isAdmin={isAdmin} onNavigate={setPage} />,
   };
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.neutral50, fontFamily: "'Inter', system-ui, sans-serif" }}>
+      {/* Topbar */}
       <div style={{ position: "sticky", top: 0, zIndex: 100, background: COLORS.white, borderBottom: `1px solid ${COLORS.neutral100}`, padding: "0 20px", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 20 }}>🤝</span>
@@ -558,24 +700,34 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 12, color: COLORS.neutral500 }}>{user.email}</span>
-          <button onClick={() => supabase.auth.signOut()} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.neutral500, display: "flex" }}>{Icon.logout}</button>
+          <button onClick={handleLogout} title="Abmelden" style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.neutral500, display: "flex" }}>{Icon.logout}</button>
         </div>
       </div>
+
       <div style={{ display: "flex", maxWidth: 1180, margin: "0 auto" }}>
+        {/* Sidebar */}
         <aside style={{ width: 200, flexShrink: 0, padding: "20px 10px", position: "sticky", top: 58, height: "calc(100vh - 58px)", display: "flex", flexDirection: "column", gap: 3 }}>
           {NAV.map(n => (
-            <button key={n.id} onClick={() => setPage(n.id)} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 14px", borderRadius: 9, border: "none", cursor: "pointer", width: "100%", textAlign: "left", background: page === n.id ? COLORS.primaryLight : "transparent", color: page === n.id ? COLORS.primary : COLORS.neutral700, fontWeight: page === n.id ? 700 : 500, fontSize: 14 }}>
+            <button key={n.id} onClick={() => setPage(n.id)} style={{
+              display: "flex", alignItems: "center", gap: 11, padding: "10px 14px", borderRadius: 9, border: "none",
+              cursor: "pointer", width: "100%", textAlign: "left",
+              background: page === n.id ? COLORS.primaryLight : "transparent",
+              color: page === n.id ? COLORS.primary : COLORS.neutral700,
+              fontWeight: page === n.id ? 700 : 500, fontSize: 14,
+            }}>
               <span style={{ opacity: page === n.id ? 1 : 0.55 }}>{n.icon}</span>{n.label}
             </button>
           ))}
-          <div style={{ marginTop: "auto", padding: "14px 14px 6px", fontSize: 11, color: COLORS.neutral300, lineHeight: 1.8 }}>🔒 DSGVO-konform<br/>🇩🇪 Daten in Europa<br/>Pseudonymisiert</div>
+          <div style={{ marginTop: "auto", padding: "14px 14px 6px", fontSize: 11, color: COLORS.neutral300, lineHeight: 1.8 }}>
+            🔒 DSGVO-konform<br/>🇩🇪 Daten in Europa<br/>Pseudonymisiert
+          </div>
         </aside>
-        <main style={{ flex: l
-      1, padding: "26px 18px 60px", minWidth: 0 }}>{pages[page]}</main>
+
+        {/* Main */}
+        <main style={{ flex: 1, padding: "26px 18px 60px", minWidth: 0 }}>
+          {pages[page]}
+        </main>
       </div>
     </div>
   );
-}
-
-  
 }
