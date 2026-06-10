@@ -1,4 +1,8 @@
 import { useState, useEffect } from "react";
+import { supabase } from "./supabase";
+import { getTagInfo, FEIERTAGE_2026, SCHULFERIEN_2026 } from "./feiertage";
+
+const ADMIN_EMAIL = "t.schleich@servus-inklusion.de";
 
 const COLORS = {
   primary: "#2D6A8A", primaryLight: "#E8F4FA", primaryDark: "#1A4A63",
@@ -6,52 +10,11 @@ const COLORS = {
   success: "#2E7D52", successLight: "#E6F4EC",
   danger: "#B83232", dangerLight: "#FAEAEA",
   warning: "#C47A00", warningLight: "#FFF3CD",
+  ferien: "#7B5EA7", ferienLight: "#F0EBF8",
   neutral50: "#F7F8FA", neutral100: "#EEF0F4", neutral300: "#C4CBD6",
   neutral500: "#7A8699", neutral700: "#3D4756", neutral900: "#1A2030",
   white: "#FFFFFF",
 };
-
-const DEMO_USERS = [
-  { id: 1, name: "Maria Huber", role: "admin", email: "m.huber@begleitung.de", initials: "MH" },
-  { id: 2, name: "Thomas Klein", role: "begleiter", email: "t.klein@begleitung.de", initials: "TK" },
-  { id: 3, name: "Sandra Berger", role: "begleiter", email: "s.berger@begleitung.de", initials: "SB" },
-];
-const DEMO_KINDER = [
-  { id: "K001", kuerzel: "K001", name: "Seppi M.", schule: "Grundschule Untermeitingen", klasse: "3a", begleiter: 2 },
-  { id: "K002", kuerzel: "K002", name: "Lena B.", schule: "Realschule Nord", klasse: "5b", begleiter: 2 },
-  { id: "K003", kuerzel: "K003", name: "Max T.", schule: "Grundschule Untermeitingen", klasse: "2c", begleiter: 3 },
-  { id: "K004", kuerzel: "K004", name: "Anna P.", schule: "Förderschule West", klasse: "4a", begleiter: 3 },
-];
-const DEMO_BUDGETS = [
-  { userId: 2, kindId: "K001", jahr: 2026, monat: 4, geplanteStunden: 63.5 },
-  { userId: 2, kindId: "K001", jahr: 2026, monat: 6, geplanteStunden: 63.5 },
-  { userId: 2, kindId: "K002", jahr: 2026, monat: 6, geplanteStunden: 40.0 },
-  { userId: 3, kindId: "K003", jahr: 2026, monat: 6, geplanteStunden: 50.0 },
-];
-const APRIL_EINTRAEGE = [
-  { datum: "2026-04-14", von: "07:45", bis: "12:00", pause: 0 },
-  { datum: "2026-04-15", von: "07:45", bis: "11:30", pause: 0 },
-  { datum: "2026-04-16", von: "07:45", bis: "12:30", pause: 0 },
-  { datum: "2026-04-17", von: "07:45", bis: "12:30", pause: 0 },
-  { datum: "2026-04-22", von: "07:45", bis: "13:15", pause: 0 },
-  { datum: "2026-04-28", von: "07:45", bis: "12:00", pause: 0 },
-  { datum: "2026-04-29", von: "07:45", bis: "11:30", pause: 0 },
-  { datum: "2026-04-30", von: "07:45", bis: "12:30", pause: 0 },
-];
-const DEMO_ZEITEN_INIT = [
-  ...APRIL_EINTRAEGE.map((e, i) => ({ id: i + 1, userId: 2, kindId: "K001", ...e, fehlzeit: false, fehlVon: "", fehlBis: "", fehlGrund: "", status: "abgeschlossen" })),
-  { id: 20, userId: 2, kindId: "K002", datum: "2026-06-09", von: "13:30", bis: "15:30", pause: 0, fehlzeit: false, fehlVon: "", fehlBis: "", fehlGrund: "", status: "abgeschlossen" },
-  { id: 21, userId: 3, kindId: "K003", datum: "2026-06-09", von: "08:00", bis: "12:30", pause: 0, fehlzeit: false, fehlVon: "", fehlBis: "", fehlGrund: "", status: "abgeschlossen" },
-];
-const DEMO_VERTRETUNGEN = [
-  { id: 1, datum: "2026-06-11", kindId: "K001", vertretenVon: 3, anfrageVon: 2, status: "offen", grund: "Arzttermin" },
-  { id: 2, datum: "2026-06-12", kindId: "K003", vertretenVon: null, anfrageVon: 3, status: "gesucht", grund: "Urlaub" },
-];
-const DEMO_DOKUMENTE = [
-  { id: 1, name: "Lohnabrechnung Mai 2026", typ: "lohn", datum: "2026-05-31", userId: 2, groesse: "124 KB" },
-  { id: 2, name: "Lohnabrechnung April 2026", typ: "lohn", datum: "2026-04-30", userId: 2, groesse: "121 KB" },
-  { id: 3, name: "Arbeitsvertrag", typ: "vertrag", datum: "2025-09-01", userId: 2, groesse: "340 KB" },
-];
 
 function minuten(von, bis) {
   if (!von || !bis) return 0;
@@ -61,7 +24,6 @@ function minuten(von, bis) {
 }
 function stunden(von, bis, pause = 0) { return Math.max(0, (minuten(von, bis) - pause) / 60); }
 function fmtHDez(h) { return h.toFixed(2) + " Std."; }
-function heute() { return new Date().toISOString().slice(0, 10); }
 function monatsTage(jahr, monat) {
   const tage = [];
   const d = new Date(jahr, monat - 1, 1);
@@ -69,63 +31,73 @@ function monatsTage(jahr, monat) {
   return tage;
 }
 const WOCHENTAGE = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 function wt(datum) { return WOCHENTAGE[new Date(datum).getDay()]; }
-function istWochenende(datum) { const d = new Date(datum).getDay(); return d === 0 || d === 6; }
 function formatDatum(datum) { return new Date(datum).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }); }
 
-function Badge({ color = COLORS.primary, bg, children }) {
-  return <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, color, background: bg || color + "18" }}>{children}</span>;
-}
 function Card({ children, style }) {
-  return <div style={{ background: COLORS.white, borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04)", padding: "20px 24px", ...style }}>{children}</div>;
+  return <div style={{ background: "#fff", borderRadius: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04)", padding: "20px 24px", ...style }}>{children}</div>;
 }
 function Btn({ children, onClick, variant = "primary", small, disabled, style }) {
   const s = {
     primary: { background: COLORS.primary, color: "#fff", border: "none" },
     secondary: { background: COLORS.neutral100, color: COLORS.neutral700, border: "none" },
-    danger: { background: COLORS.dangerLight, color: COLORS.danger, border: `1px solid ${COLORS.danger}30` },
-    success: { background: COLORS.successLight, color: COLORS.success, border: `1px solid ${COLORS.success}30` },
+    danger: { background: COLORS.dangerLight, color: COLORS.danger, border: "none" },
+    success: { background: COLORS.successLight, color: COLORS.success, border: "none" },
     ghost: { background: "transparent", color: COLORS.primary, border: `1.5px solid ${COLORS.primary}` },
-    warning: { background: COLORS.warningLight, color: COLORS.warning, border: `1px solid ${COLORS.warning}40` },
   };
-  return <button onClick={onClick} disabled={disabled} style={{ ...s[variant], borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", padding: small ? "5px 12px" : "9px 18px", fontSize: small ? 12 : 14, fontWeight: 600, opacity: disabled ? 0.5 : 1, transition: "all 0.15s", ...style }}>{children}</button>;
+  return <button onClick={onClick} disabled={disabled} style={{ ...s[variant], borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", padding: small ? "5px 12px" : "9px 18px", fontSize: small ? 12 : 14, fontWeight: 600, opacity: disabled ? 0.5 : 1, ...style }}>{children}</button>;
 }
-function Input({ label, value, onChange, type = "text", placeholder, small }) {
+function Input({ label, value, onChange, type = "text", placeholder }) {
   return (
-    <div style={{ marginBottom: small ? 0 : 12 }}>
+    <div style={{ marginBottom: 12 }}>
       {label && <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: COLORS.neutral700, marginBottom: 4 }}>{label}</label>}
       <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        style={{ width: "100%", padding: small ? "5px 8px" : "8px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: small ? 13 : 14, background: COLORS.white, color: COLORS.neutral900, boxSizing: "border-box" }} />
+        style={{ width: "100%", padding: "8px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14, boxSizing: "border-box" }} />
     </div>
   );
 }
-function Avatar({ initials, size = 36, color = COLORS.primary }) {
-  return <div style={{ width: size, height: size, borderRadius: size, background: color + "20", color, fontWeight: 700, fontSize: size * 0.38, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{initials}</div>;
+function Badge({ color = COLORS.primary, bg, children }) {
+  return <span style={{ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, color, background: bg || color + "18" }}>{children}</span>;
+}
+function Spinner() {
+  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+    <div style={{ width: 32, height: 32, border: `3px solid ${COLORS.neutral100}`, borderTop: `3px solid ${COLORS.primary}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+    <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+  </div>;
 }
 
 const Icon = {
-  clock: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>,
-  swap: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>,
-  doc: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
-  team: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-  shield: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
   logout: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>,
-  plus: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   dashboard: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
   nachweis: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>,
-  print: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+  team: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  plus: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
   warn: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  shield: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
 };
 
 function LoginScreen({ onLogin }) {
-  const [email, setEmail] = useState("t.klein@begleitung.de");
-  const [pw, setPw] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
-  function handleLogin() {
-    const user = DEMO_USERS.find(u => u.email === email);
-    if (!user || pw !== "demo1234") { setErr("E-Mail oder Passwort falsch."); return; }
-    onLogin(user);
+  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState("login");
+
+  async function handleLogin() {
+    setLoading(true); setErr("");
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
+    if (error) { setErr("E-Mail oder Passwort falsch."); setLoading(false); return; }
+    onLogin(data.user); setLoading(false);
   }
+
+  async function handleRegister() {
+    setLoading(true); setErr("");
+    const { error } = await supabase.auth.signUp({ email, password: pw });
+    if (error) { setErr(error.message); setLoading(false); return; }
+    setErr("✅ Bestätigungsmail gesendet!"); setLoading(false);
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: `linear-gradient(135deg, ${COLORS.primaryDark} 0%, ${COLORS.primary} 60%, #3D8FA8 100%)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 400, padding: "0 16px" }}>
@@ -139,168 +111,339 @@ function LoginScreen({ onLogin }) {
           </div>
         </div>
         <Card>
-          <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 700 }}>Anmelden</h2>
-          <p style={{ margin: "0 0 22px", fontSize: 13, color: COLORS.neutral500 }}>DSGVO-konform · Kinderdaten pseudonymisiert</p>
-          <Input label="E-Mail" value={email} onChange={setEmail} type="email" />
-          <Input label="Passwort" value={pw} onChange={setPw} type="password" />
-          {err && <div style={{ background: COLORS.dangerLight, color: COLORS.danger, borderRadius: 8, padding: "9px 13px", fontSize: 13, marginBottom: 12 }}>{err}</div>}
-          <Btn onClick={handleLogin} style={{ width: "100%" }}>Anmelden</Btn>
-          <div style={{ marginTop: 18, padding: 12, background: COLORS.neutral50, borderRadius: 8, fontSize: 12, color: COLORS.neutral500 }}>
-            <strong style={{ color: COLORS.neutral700 }}>Demo (PW: demo1234)</strong><br />
-            Admin: m.huber@begleitung.de<br />
-            Begleiter: t.klein@begleitung.de
-          </div>
+          <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 700 }}>{mode === "login" ? "Anmelden" : "Registrieren"}</h2>
+          <p style={{ margin: "0 0 20px", fontSize: 13, color: COLORS.neutral500 }}>DSGVO-konform · Kinderdaten pseudonymisiert</p>
+          <Input label="E-Mail" value={email} onChange={setEmail} type="email" placeholder="vorname.name@email.de" />
+          <Input label="Passwort" value={pw} onChange={setPw} type="password" placeholder="Mindestens 6 Zeichen" />
+          {err && <div style={{ background: err.startsWith("✅") ? COLORS.successLight : COLORS.dangerLight, color: err.startsWith("✅") ? COLORS.success : COLORS.danger, borderRadius: 8, padding: "9px 13px", fontSize: 13, marginBottom: 12 }}>{err}</div>}
+          <Btn onClick={mode === "login" ? handleLogin : handleRegister} disabled={loading} style={{ width: "100%", marginBottom: 12 }}>
+            {loading ? "Bitte warten..." : mode === "login" ? "Anmelden" : "Registrieren"}
+          </Btn>
+          <button onClick={() => setMode(m => m === "login" ? "register" : "login")} style={{ background: "none", border: "none", color: COLORS.primary, fontSize: 13, cursor: "pointer", width: "100%", textAlign: "center" }}>
+            {mode === "login" ? "Noch kein Account? Registrieren" : "Bereits registriert? Anmelden"}
+          </button>
         </Card>
+        <p style={{ textAlign: "center", marginTop: 16, fontSize: 12, color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+          {Icon.shield} DSGVO-konform · Daten in Europa
+        </p>
       </div>
+    </div>
+  );function AdminBereich() {
+  const [tab, setTab] = useState("mitarbeiter");
+  const [mitarbeiter, setMitarbeiter] = useState([]);
+  const [kinder, setKinder] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [kindForm, setKindForm] = useState({ kuerzel: "", schule: "", klasse: "", begleiter_id: "" });
+  const [showKindForm, setShowKindForm] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => { ladeDaten(); }, []);
+
+  async function ladeDaten() {
+    setLoading(true);
+    const { data: ma } = await supabase.from("profiles").select("*");
+    const { data: ki } = await supabase.from("kinder").select("*");
+    setMitarbeiter(ma || []);
+    setKinder(ki || []);
+    setLoading(false);
+  }
+
+  async function kindSpeichern() {
+    if (!kindForm.kuerzel || !kindForm.schule) return;
+    const { error } = await supabase.from("kinder").insert([kindForm]);
+    if (!error) { setMsg("✅ Kind gespeichert!"); setKindForm({ kuerzel: "", schule: "", klasse: "", begleiter_id: "" }); setShowKindForm(false); ladeDaten(); }
+    else setMsg("❌ " + error.message);
+  }
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div>
+      <h2 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 700 }}>⚙️ Admin-Bereich</h2>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {["mitarbeiter", "kinder", "ferien"].map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{ padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600, background: tab === t ? COLORS.primary : COLORS.neutral100, color: tab === t ? "#fff" : COLORS.neutral700 }}>
+            {t === "mitarbeiter" ? "👤 Mitarbeiter" : t === "kinder" ? "🧒 Kinder" : "🏖 Ferien"}
+          </button>
+        ))}
+      </div>
+      {msg && <div style={{ padding: "10px 14px", borderRadius: 8, background: msg.startsWith("✅") ? COLORS.successLight : COLORS.dangerLight, color: msg.startsWith("✅") ? COLORS.success : COLORS.danger, marginBottom: 16, fontSize: 13 }}>{msg}</div>}
+
+      {tab === "mitarbeiter" && (
+        <Card>
+          <h3 style={{ margin: "0 0 16px", fontSize: 16, fontWeight: 700 }}>Mitarbeiter ({mitarbeiter.length})</h3>
+          <p style={{ fontSize: 13, color: COLORS.neutral500, marginBottom: 16 }}>Mitarbeiter müssen sich zuerst selbst registrieren. Danach erscheinen sie hier.</p>
+          {mitarbeiter.length === 0 && <p style={{ color: COLORS.neutral500, textAlign: "center", padding: "20px 0" }}>Noch keine Mitarbeiter registriert</p>}
+          {mitarbeiter.map(m => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: COLORS.neutral50, borderRadius: 10, marginBottom: 8 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 36, background: COLORS.primary + "20", color: COLORS.primary, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {(m.name || m.email || "?").slice(0, 2).toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name || "Kein Name"}</div>
+                <div style={{ fontSize: 12, color: COLORS.neutral500 }}>{m.email}</div>
+              </div>
+              <Badge color={m.role === "admin" ? COLORS.accent : COLORS.primary}>{m.role || "begleiter"}</Badge>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {tab === "kinder" && (
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Kinder ({kinder.length})</h3>
+            <Btn small onClick={() => setShowKindForm(s => !s)} style={{ display: "flex", alignItems: "center", gap: 6 }}>{Icon.plus} Anlegen</Btn>
+          </div>
+          {showKindForm && (
+            <div style={{ padding: 16, background: COLORS.neutral50, borderRadius: 10, marginBottom: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
+                <Input label="Kürzel (z.B. K005)" value={kindForm.kuerzel} onChange={v => setKindForm(f => ({ ...f, kuerzel: v }))} />
+                <Input label="Klasse" value={kindForm.klasse} onChange={v => setKindForm(f => ({ ...f, klasse: v }))} />
+                <div style={{ gridColumn: "1/-1" }}><Input label="Schule / Einrichtung" value={kindForm.schule} onChange={v => setKindForm(f => ({ ...f, schule: v }))} /></div>
+                <div style={{ gridColumn: "1/-1" }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Begleiter/in</label>
+                  <select value={kindForm.begleiter_id} onChange={e => setKindForm(f => ({ ...f, begleiter_id: e.target.value }))}
+                    style={{ width: "100%", padding: "8px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14, marginBottom: 12 }}>
+                    <option value="">– wählen –</option>
+                    {mitarbeiter.map(m => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <Btn onClick={kindSpeichern} disabled={!kindForm.kuerzel || !kindForm.schule}>Speichern</Btn>
+                <Btn variant="secondary" onClick={() => setShowKindForm(false)}>Abbrechen</Btn>
+              </div>
+            </div>
+          )}
+          {kinder.map(k => {
+            const begl = mitarbeiter.find(m => m.id === k.begleiter_id);
+            return (
+              <div key={k.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 14px", background: COLORS.neutral50, borderRadius: 10, marginBottom: 8 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: COLORS.primaryLight, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: COLORS.primary, fontSize: 11 }}>{k.kuerzel}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{k.schule} · Kl. {k.klasse}</div>
+                  <div style={{ fontSize: 12, color: COLORS.neutral500 }}>{begl ? begl.name || begl.email : "Kein Begleiter"}</div>
+                </div>
+              </div>
+            );
+          })}
+        </Card>
+      )}
+
+      {tab === "ferien" && (
+        <div>
+          <Card style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700 }}>🏖 Schulferien Bayern 2026</h3>
+            {SCHULFERIEN_2026.map(f => (
+              <div key={f.von} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${COLORS.neutral100}` }}>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{f.name}</span>
+                <span style={{ fontSize: 13, color: COLORS.neutral500 }}>{new Date(f.von).toLocaleDateString("de-DE")} – {new Date(f.bis).toLocaleDateString("de-DE")}</span>
+              </div>
+            ))}
+          </Card>
+          <Card>
+            <h3 style={{ margin: "0 0 14px", fontSize: 16, fontWeight: 700 }}>🎉 Feiertage Bayern 2026</h3>
+            {FEIERTAGE_2026.map(f => (
+              <div key={f.datum} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px solid ${COLORS.neutral100}` }}>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{f.name}</span>
+                <span style={{ fontSize: 13, color: COLORS.neutral500 }}>{new Date(f.datum).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
+              </div>
+            ))}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
+
 function Betreuungsnachweis({ user }) {
   const jetzt = new Date();
   const [jahr, setJahr] = useState(jetzt.getFullYear());
   const [monat, setMonat] = useState(jetzt.getMonth() + 1);
   const [kindId, setKindId] = useState("");
-  const [zeiten, setZeiten] = useState(DEMO_ZEITEN_INIT);
-  const [budgets, setBudgets] = useState(DEMO_BUDGETS);
+  const [kinder, setKinder] = useState([]);
+  const [eintraege, setEintraege] = useState([]);
+  const [budget, setBudget] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [druckModus, setDruckModus] = useState(false);
-  const meineKinder = DEMO_KINDER.filter(k => k.begleiter === user.id || user.role === "admin");
-  useEffect(() => { if (meineKinder.length > 0 && !kindId) setKindId(meineKinder[0].id); }, [user.id]);
-  const kind = DEMO_KINDER.find(k => k.id === kindId);
-  const budget = budgets.find(b => b.userId === user.id && b.kindId === kindId && b.jahr === jahr && b.monat === monat);
-  const geplanteStunden = budget?.geplanteStunden || 0;
+
+  useEffect(() => { ladeKinder(); }, []);
+  useEffect(() => { if (kindId) { ladeEintraege(); ladeBudget(); } }, [kindId, jahr, monat]);
+
+  async function ladeKinder() {
+    const { data } = await supabase.from("kinder").select("*").eq("begleiter_id", user.id);
+    setKinder(data || []);
+    if (data && data.length > 0) setKindId(data[0].id);
+    setLoading(false);
+  }
+
+  async function ladeEintraege() {
+    const von = `${jahr}-${String(monat).padStart(2, "0")}-01`;
+    const bis = `${jahr}-${String(monat).padStart(2, "0")}-31`;
+    const { data } = await supabase.from("zeiteintraege").select("*").eq("user_id", user.id).eq("kind_id", kindId).gte("datum", von).lte("datum", bis);
+    setEintraege(data || []);
+  }
+
+  async function ladeBudget() {
+    const { data } = await supabase.from("budgets").select("*").eq("user_id", user.id).eq("kind_id", kindId).eq("jahr", jahr).eq("monat", monat).single();
+    setBudget(data?.geplante_stunden || 0);
+  }
+
+  async function updateBudget(val) {
+    const v = parseFloat(val) || 0;
+    setBudget(v);
+    await supabase.from("budgets").upsert({ user_id: user.id, kind_id: kindId, jahr, monat, geplante_stunden: v }, { onConflict: "user_id,kind_id,jahr,monat" });
+  }
+
+  async function updateEintrag(datum, feld, wert) {
+    setSaving(true);
+    const existing = eintraege.find(e => e.datum === datum);
+    if (existing) {
+      await supabase.from("zeiteintraege").update({ [feld]: wert || null }).eq("id", existing.id);
+    } else {
+      await supabase.from("zeiteintraege").insert([{ user_id: user.id, kind_id: kindId, datum, [feld]: wert || null }]);
+    }
+    await ladeEintraege();
+    setSaving(false);
+  }
+
   const tage = monatsTage(jahr, monat);
-  const monatEintraege = tage.map(datum => zeiten.find(z => z.userId === user.id && z.kindId === kindId && z.datum === datum) || { datum, von: "", bis: "", pause: 0, fehlzeit: false, fehlVon: "", fehlBis: "", fehlGrund: "", _leer: true });
+  const monatEintraege = tage.map(datum => eintraege.find(e => e.datum === datum) || { datum });
   const stundenProTag = monatEintraege.map(e => stunden(e.von, e.bis, e.pause || 0));
   const gesamtStunden = stundenProTag.reduce((s, h) => s + h, 0);
-  const ueberschritten = geplanteStunden > 0 && gesamtStunden > geplanteStunden;
-  const auslastung = geplanteStunden > 0 ? (gesamtStunden / geplanteStunden) * 100 : 0;
-  function updateEintrag(datum, feld, wert) {
-    setZeiten(prev => {
-      const existing = prev.find(z => z.userId === user.id && z.kindId === kindId && z.datum === datum);
-      if (existing) return prev.map(z => z.userId === user.id && z.kindId === kindId && z.datum === datum ? { ...z, [feld]: wert } : z);
-      return [...prev, { id: Date.now(), userId: user.id, kindId, datum, von: "", bis: "", pause: 0, fehlzeit: false, fehlVon: "", fehlBis: "", fehlGrund: "", status: "offen", [feld]: wert }];
-    });
-  }
-  function updateBudget(val) {
-    const v = parseFloat(val) || 0;
-    setBudgets(prev => {
-      const ex = prev.find(b => b.userId === user.id && b.kindId === kindId && b.jahr === jahr && b.monat === monat);
-      if (ex) return prev.map(b => b.userId === user.id && b.kindId === kindId && b.jahr === jahr && b.monat === monat ? { ...b, geplanteStunden: v } : b);
-      return [...prev, { userId: user.id, kindId, jahr, monat, geplanteStunden: v }];
-    });
-  }
-  const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
-  const tdBase = { padding: "5px 7px", fontSize: 13, borderBottom: `1px solid ${COLORS.neutral100}`, verticalAlign: "middle" };
-  const thBase = { padding: "8px 7px", fontSize: 12, fontWeight: 700, color: COLORS.neutral500, borderBottom: `2px solid ${COLORS.neutral300}`, background: COLORS.neutral50, textAlign: "left" };
+  const ueberschritten = budget > 0 && gesamtStunden > budget;
+  const auslastung = budget > 0 ? (gesamtStunden / budget) * 100 : 0;
+  const kind = kinder.find(k => k.id === kindId);
+  const tdBase = { padding: "4px 6px", fontSize: 13, borderBottom: `1px solid ${COLORS.neutral100}`, verticalAlign: "middle" };
+  const thBase = { padding: "7px 6px", fontSize: 11, fontWeight: 700, color: COLORS.neutral500, borderBottom: `2px solid ${COLORS.neutral300}`, background: COLORS.neutral50, textAlign: "left" };
+
+  if (loading) return <Spinner />;
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Betreuungsnachweis</h2>
-        <Btn variant="secondary" small onClick={() => setDruckModus(d => !d)} style={{ display: "flex", alignItems: "center", gap: 6 }}>{Icon.print} {druckModus ? "Bearbeiten" : "Druckansicht"}</Btn>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Betreuungsnachweis {saving && <span style={{ fontSize: 13, color: COLORS.neutral500 }}>💾...</span>}</h2>
+        <Btn variant="secondary" small onClick={() => setDruckModus(d => !d)}>🖨 {druckModus ? "Bearbeiten" : "Druckansicht"}</Btn>
       </div>
-      <Card style={{ marginBottom: 20, padding: "16px 20px" }}>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+      <Card style={{ marginBottom: 16, padding: "14px 18px" }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Kind</label>
-            <select value={kindId} onChange={e => setKindId(e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14, minWidth: 160 }}>
-              {meineKinder.map(k => <option key={k.id} value={k.id}>{k.kuerzel} – {k.schule}</option>)}
+            <select value={kindId} onChange={e => setKindId(e.target.value)} style={{ padding: "7px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14 }}>
+              {kinder.map(k => <option key={k.id} value={k.id}>{k.kuerzel} – {k.schule}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Monat</label>
-            <select value={monat} onChange={e => setMonat(Number(e.target.value))} style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14 }}>
+            <select value={monat} onChange={e => setMonat(Number(e.target.value))} style={{ padding: "7px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14 }}>
               {MONATE.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Jahr</label>
-            <select value={jahr} onChange={e => setJahr(Number(e.target.value))} style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14 }}>
+            <select value={jahr} onChange={e => setJahr(Number(e.target.value))} style={{ padding: "7px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14 }}>
               {[2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Geplante Stunden</label>
-            <input type="number" value={geplanteStunden} onChange={e => updateBudget(e.target.value)} min={0} step={0.25} style={{ padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${ueberschritten ? COLORS.danger : COLORS.neutral300}`, fontSize: 14, width: 120 }} />
+            <input type="number" value={budget} onChange={e => updateBudget(e.target.value)} min={0} step={0.25}
+              style={{ padding: "7px 11px", borderRadius: 7, border: `1.5px solid ${ueberschritten ? COLORS.danger : COLORS.neutral300}`, fontSize: 14, width: 110 }} />
           </div>
         </div>
       </Card>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 14 }}>
         {[
-          { label: "Geplant", value: fmtHDez(geplanteStunden), color: COLORS.primary, bg: COLORS.primaryLight },
+          { label: "Geplant", value: fmtHDez(budget), color: COLORS.primary, bg: COLORS.primaryLight },
           { label: "Erfasst", value: fmtHDez(gesamtStunden), color: ueberschritten ? COLORS.danger : COLORS.success, bg: ueberschritten ? COLORS.dangerLight : COLORS.successLight },
-          { label: "Verbleibend", value: fmtHDez(Math.max(0, geplanteStunden - gesamtStunden)), color: COLORS.warning, bg: COLORS.warningLight },
-          { label: "Auslastung", value: geplanteStunden > 0 ? auslastung.toFixed(0) + "%" : "–", color: ueberschritten ? COLORS.danger : COLORS.neutral700, bg: COLORS.neutral100 },
+          { label: "Verbleibend", value: fmtHDez(Math.max(0, budget - gesamtStunden)), color: COLORS.warning, bg: COLORS.warningLight },
+          { label: "Auslastung", value: budget > 0 ? auslastung.toFixed(0) + "%" : "–", color: ueberschritten ? COLORS.danger : COLORS.neutral700, bg: COLORS.neutral100 },
         ].map(s => (
-          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: "14px 18px" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: COLORS.neutral500, marginTop: 2 }}>{s.label}</div>
+          <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: "12px 14px" }}>
+            <div style={{ fontSize: 19, fontWeight: 800, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: COLORS.neutral500, marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
-      {geplanteStunden > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ height: 10, background: COLORS.neutral100, borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ height: "100%", borderRadius: 10, transition: "width 0.4s", width: Math.min(auslastung, 100) + "%", background: ueberschritten ? COLORS.danger : auslastung > 85 ? COLORS.warning : COLORS.success }} />
+      {budget > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ height: 8, background: COLORS.neutral100, borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ height: "100%", borderRadius: 10, width: Math.min(auslastung, 100) + "%", background: ueberschritten ? COLORS.danger : auslastung > 85 ? COLORS.warning : COLORS.success }} />
           </div>
-          {ueberschritten && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "10px 14px", background: COLORS.dangerLight, borderRadius: 8, color: COLORS.danger, fontSize: 13, fontWeight: 600 }}>
-              {Icon.warn} Stundenbudget überschritten! +{fmtHDez(gesamtStunden - geplanteStunden)}
-            </div>
-          )}
+          {ueberschritten && <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "9px 13px", background: COLORS.dangerLight, borderRadius: 8, color: COLORS.danger, fontSize: 13, fontWeight: 600 }}>{Icon.warn} Budget überschritten! +{fmtHDez(gesamtStunden - budget)}</div>}
         </div>
       )}
       <Card style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "18px 20px", borderBottom: `2px solid ${COLORS.neutral100}`, background: COLORS.primaryLight }}>
-          <h3 style={{ margin: "0 0 10px", fontSize: 17, fontWeight: 800, color: COLORS.primaryDark, textAlign: "center" }}>Betreuungsnachweis</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", fontSize: 13 }}>
-            <div><span style={{ color: COLORS.neutral500 }}>Betreuer/in: </span><strong>{user.name}</strong></div>
+        <div style={{ padding: "14px 18px", background: COLORS.primaryLight, borderBottom: `2px solid ${COLORS.neutral100}` }}>
+          <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 800, color: COLORS.primaryDark, textAlign: "center" }}>Betreuungsnachweis</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 20px", fontSize: 13 }}>
+            <div><span style={{ color: COLORS.neutral500 }}>Betreuer/in: </span><strong>{user.email}</strong></div>
             <div><span style={{ color: COLORS.neutral500 }}>Monat/Jahr: </span><strong>{MONATE[monat - 1]} {jahr}</strong></div>
             <div><span style={{ color: COLORS.neutral500 }}>Kind: </span><strong>{kind?.kuerzel}</strong></div>
             <div><span style={{ color: COLORS.neutral500 }}>Einrichtung: </span><strong>{kind?.schule}</strong></div>
           </div>
         </div>
+        <div style={{ padding: "6px 14px", background: COLORS.neutral50, display: "flex", gap: 14, fontSize: 11, borderBottom: `1px solid ${COLORS.neutral100}`, flexWrap: "wrap" }}>
+          <span style={{ color: COLORS.ferien }}>🟣 Schulferien</span>
+          <span style={{ color: COLORS.accent }}>🟡 Feiertag</span>
+          <span style={{ color: COLORS.neutral400 }}>⬛ Wochenende</span>
+        </div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
             <thead>
               <tr>
-                <th style={{ ...thBase, width: 36 }}>Tag</th>
-                <th style={{ ...thBase, width: 90 }}>Datum</th>
-                <th style={{ ...thBase, width: 80, borderLeft: `2px solid ${COLORS.primary}30` }}>Von</th>
-                <th style={{ ...thBase, width: 80 }}>Bis</th>
-                <th style={{ ...thBase, width: 60 }}>Pause</th>
-                <th style={{ ...thBase, width: 70, color: COLORS.primary }}>Std.</th>
-                <th style={{ ...thBase, width: 80, borderLeft: `2px solid ${COLORS.accent}40`, color: COLORS.warning }}>FZ Von</th>
-                <th style={{ ...thBase, width: 80, color: COLORS.warning }}>FZ Bis</th>
+                <th style={{ ...thBase, width: 32 }}>Tag</th>
+                <th style={{ ...thBase, width: 85 }}>Datum</th>
+                <th style={{ ...thBase }}>Info</th>
+                <th style={{ ...thBase, width: 75 }}>Von</th>
+                <th style={{ ...thBase, width: 75 }}>Bis</th>
+                <th style={{ ...thBase, width: 55 }}>Pause</th>
+                <th style={{ ...thBase, width: 65, color: COLORS.primary }}>Std.</th>
+                <th style={{ ...thBase, width: 75, color: COLORS.warning }}>FZ Von</th>
+                <th style={{ ...thBase, width: 75, color: COLORS.warning }}>FZ Bis</th>
                 <th style={{ ...thBase, color: COLORS.warning }}>Grund</th>
               </tr>
             </thead>
             <tbody>
               {monatEintraege.map((e, i) => {
-                const istWE = istWochenende(e.datum);
+                const tagInfo = getTagInfo(e.datum);
                 const h = stundenProTag[i];
                 const hatEintrag = e.von && e.bis;
+                let rowBg = COLORS.white;
+                if (tagInfo.typ === "ferien") rowBg = COLORS.ferienLight;
+                else if (tagInfo.typ === "feiertag") rowBg = COLORS.accentLight;
+                else if (tagInfo.typ === "wochenende") rowBg = COLORS.neutral50;
                 return (
-                  <tr key={e.datum} style={{ background: istWE ? COLORS.neutral50 : COLORS.white, opacity: istWE ? 0.5 : 1 }}>
-                    <td style={{ ...tdBase, fontWeight: 700, fontSize: 12, color: COLORS.neutral500 }}>{wt(e.datum)}</td>
-                    <td style={{ ...tdBase, fontSize: 13 }}>{formatDatum(e.datum)}</td>
-                    <td style={{ ...tdBase, borderLeft: `2px solid ${COLORS.primary}20`, padding: "3px 5px" }}>
-                      {druckModus ? <span>{e.von || "–"}</span> : <input type="time" value={e.von || ""} disabled={istWE} onChange={ev => updateEintrag(e.datum, "von", ev.target.value)} style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 13 }} />}
+                  <tr key={e.datum} style={{ background: rowBg }}>
+                    <td style={{ ...tdBase, fontWeight: 700, fontSize: 11, color: COLORS.neutral500 }}>{wt(e.datum)}</td>
+                    <td style={{ ...tdBase, fontSize: 12 }}>{formatDatum(e.datum)}</td>
+                    <td style={{ ...tdBase, fontSize: 11, color: tagInfo.typ === "feiertag" ? COLORS.accent : tagInfo.typ === "ferien" ? COLORS.ferien : COLORS.neutral300 }}>{tagInfo.grund || ""}</td>
+                    <td style={{ ...tdBase, padding: "2px 4px" }}>
+                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 12, opacity: tagInfo.frei ? 0.4 : 1 }}>{e.von || "–"}</span> :
+                        <input type="time" value={e.von || ""} onChange={ev => updateEintrag(e.datum, "von", ev.target.value)} style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
                     </td>
-                    <td style={{ ...tdBase, padding: "3px 5px" }}>
-                      {druckModus ? <span>{e.bis || "–"}</span> : <input type="time" value={e.bis || ""} disabled={istWE} onChange={ev => updateEintrag(e.datum, "bis", ev.target.value)} style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 13 }} />}
+                    <td style={{ ...tdBase, padding: "2px 4px" }}>
+                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 12, opacity: tagInfo.frei ? 0.4 : 1 }}>{e.bis || "–"}</span> :
+                        <input type="time" value={e.bis || ""} onChange={ev => updateEintrag(e.datum, "bis", ev.target.value)} style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
                     </td>
-                    <td style={{ ...tdBase, padding: "3px 5px" }}>
-                      {druckModus ? <span>{e.pause ? e.pause + "'" : "–"}</span> : <input type="number" min={0} step={5} value={e.pause || ""} disabled={istWE} onChange={ev => updateEintrag(e.datum, "pause", Number(ev.target.value))} placeholder="0" style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 13 }} />}
+                    <td style={{ ...tdBase, padding: "2px 4px" }}>
+                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 12, opacity: tagInfo.frei ? 0.4 : 1 }}>{e.pause ? e.pause + "'" : "–"}</span> :
+                        <input type="number" min={0} step={5} value={e.pause || ""} onChange={ev => updateEintrag(e.datum, "pause", Number(ev.target.value))} placeholder="0" style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
                     </td>
                     <td style={{ ...tdBase, fontWeight: 700, color: hatEintrag ? COLORS.primary : COLORS.neutral300 }}>{hatEintrag ? h.toFixed(2) : "–"}</td>
-                    <td style={{ ...tdBase, borderLeft: `2px solid ${COLORS.accent}30`, padding: "3px 5px" }}>
-                      {druckModus ? <span>{e.fehlVon || "–"}</span> : <input type="time" value={e.fehlVon || ""} disabled={istWE} onChange={ev => updateEintrag(e.datum, "fehlVon", ev.target.value)} style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
+                    <td style={{ ...tdBase, padding: "2px 4px" }}>
+                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 11, opacity: 0.4 }}>{e.fehl_von || "–"}</span> :
+                        <input type="time" value={e.fehl_von || ""} onChange={ev => updateEintrag(e.datum, "fehl_von", ev.target.value)} style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
                     </td>
-                    <td style={{ ...tdBase, padding: "3px 5px" }}>
-                      {druckModus ? <span>{e.fehlBis || "–"}</span> : <input type="time" value={e.fehlBis || ""} disabled={istWE} onChange={ev => updateEintrag(e.datum, "fehlBis", ev.target.value)} style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
+                    <td style={{ ...tdBase, padding: "2px 4px" }}>
+                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 11, opacity: 0.4 }}>{e.fehl_bis || "–"}</span> :
+                        <input type="time" value={e.fehl_bis || ""} onChange={ev => updateEintrag(e.datum, "fehl_bis", ev.target.value)} style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
                     </td>
-                    <td style={{ ...tdBase, padding: "3px 5px" }}>
-                      {druckModus ? <span>{e.fehlGrund || ""}</span> : <input type="text" value={e.fehlGrund || ""} disabled={istWE} onChange={ev => updateEintrag(e.datum, "fehlGrund", ev.target.value)} placeholder="Grund..." style={{ width: "100%", padding: "4px 6px", borderRadius: 6, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 12 }} />}
+                    <td style={{ ...tdBase, padding: "2px 4px" }}>
+                      {druckModus || tagInfo.frei ? <span style={{ fontSize: 11, opacity: 0.4 }}>{e.fehl_grund || ""}</span> :
+                        <input type="text" value={e.fehl_grund || ""} onChange={ev => updateEintrag(e.datum, "fehl_grund", ev.target.value)} placeholder="Grund..." style={{ width: "100%", padding: "3px 5px", borderRadius: 5, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 11 }} />}
                     </td>
                   </tr>
                 );
@@ -308,11 +451,11 @@ function Betreuungsnachweis({ user }) {
             </tbody>
             <tfoot>
               <tr style={{ background: COLORS.primaryLight }}>
-                <td colSpan={3} style={{ ...tdBase, fontWeight: 700, borderTop: `2px solid ${COLORS.primary}30` }}>Geplant: <strong>{fmtHDez(geplanteStunden)}</strong></td>
+                <td colSpan={4} style={{ ...tdBase, fontWeight: 700, borderTop: `2px solid ${COLORS.primary}30` }}>Geplant: <strong>{fmtHDez(budget)}</strong></td>
                 <td colSpan={2} style={{ ...tdBase, fontWeight: 700, borderTop: `2px solid ${COLORS.primary}30` }}>Gesamt:</td>
                 <td style={{ ...tdBase, fontWeight: 800, fontSize: 14, color: ueberschritten ? COLORS.danger : COLORS.success, borderTop: `2px solid ${COLORS.primary}30` }}>{fmtHDez(gesamtStunden)}</td>
-                <td colSpan={3} style={{ ...tdBase, fontWeight: 700, fontSize: 12, color: ueberschritten ? COLORS.danger : COLORS.neutral500, borderTop: `2px solid ${COLORS.primary}30`, borderLeft: `2px solid ${COLORS.accent}30` }}>
-                  {ueberschritten ? `⚠️ +${fmtHDez(gesamtStunden - geplanteStunden)} über Budget` : `✓ Noch ${fmtHDez(geplanteStunden - gesamtStunden)} verfügbar`}
+                <td colSpan={3} style={{ ...tdBase, fontSize: 12, color: ueberschritten ? COLORS.danger : COLORS.neutral500, borderTop: `2px solid ${COLORS.primary}30` }}>
+                  {ueberschritten ? `⚠️ +${fmtHDez(gesamtStunden - budget)} über Budget` : `✓ Noch ${fmtHDez(budget - gesamtStunden)} verfügbar`}
                 </td>
               </tr>
             </tfoot>
@@ -327,189 +470,112 @@ function Betreuungsnachweis({ user }) {
   );
 }
 
-function Vertretungen({ user }) {
-  const [verts, setVerts] = useState(DEMO_VERTRETUNGEN);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ kindId: "", datum: "", grund: "" });
-  const meineKinder = DEMO_KINDER.filter(k => k.begleiter === user.id || user.role === "admin");
-  function anfragen() {
-    if (!form.kindId || !form.datum) return;
-    setVerts(v => [...v, { id: v.length + 1, datum: form.datum, kindId: form.kindId, vertretenVon: null, anfrageVon: user.id, status: "gesucht", grund: form.grund }]);
-    setForm({ kindId: "", datum: "", grund: "" }); setShowForm(false);
-  }
-  function annehmen(id) { setVerts(v => v.map(x => x.id === id ? { ...x, vertretenVon: user.id, status: "bestätigt" } : x)); }
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Vertretungen</h2>
-        <Btn small onClick={() => setShowForm(s => !s)} style={{ display: "flex", alignItems: "center", gap: 6 }}>{Icon.plus} Anfragen</Btn>
-      </div>
-      {showForm && (
-        <Card style={{ marginBottom: 20 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.neutral700, display: "block", marginBottom: 4 }}>Kind</label>
-              <select value={form.kindId} onChange={e => setForm(f => ({ ...f, kindId: e.target.value }))} style={{ width: "100%", padding: "8px 11px", borderRadius: 7, border: `1.5px solid ${COLORS.neutral300}`, fontSize: 14, marginBottom: 12 }}>
-                <option value="">– wählen –</option>
-                {meineKinder.map(k => <option key={k.id} value={k.id}>{k.kuerzel}</option>)}
-              </select>
-            </div>
-            <Input label="Datum" value={form.datum} onChange={v => setForm(f => ({ ...f, datum: v }))} type="date" />
-            <div style={{ gridColumn: "1/-1" }}><Input label="Grund" value={form.grund} onChange={v => setForm(f => ({ ...f, grund: v }))} /></div>
-            <div style={{ gridColumn: "1/-1", display: "flex", gap: 10 }}>
-              <Btn onClick={anfragen} disabled={!form.kindId || !form.datum}>Stellen</Btn>
-              <Btn variant="secondary" onClick={() => setShowForm(false)}>Abbrechen</Btn>
-            </div>
-          </div>
-        </Card>
-      )}
-      <Card>
-        {verts.map(v => {
-          const anfrager = DEMO_USERS.find(u => u.id === v.anfrageVon);
-          const vertreter = DEMO_USERS.find(u => u.id === v.vertretenVon);
-          return (
-            <div key={v.id} style={{ border: `1.5px solid ${v.status === "bestätigt" ? COLORS.success + "40" : COLORS.neutral300}`, borderRadius: 12, padding: "13px 16px", marginBottom: 10, background: v.status === "bestätigt" ? COLORS.successLight : COLORS.white }}>
-              <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700 }}>Kind {v.kindId} · {new Date(v.datum).toLocaleDateString("de-DE")}</div>
-                  <div style={{ fontSize: 13, color: COLORS.neutral500 }}>Von: {anfrager?.name} · {v.grund}</div>
-                  {vertreter && <div style={{ fontSize: 13, color: COLORS.success, fontWeight: 600 }}>✓ {vertreter.name}</div>}
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <Badge color={v.status === "bestätigt" ? COLORS.success : COLORS.accent}>{v.status}</Badge>
-                  {v.status === "gesucht" && v.anfrageVon !== user.id && <Btn variant="success" small onClick={() => annehmen(v.id)}>Übernehmen</Btn>}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </Card>
-    </div>
-  );
-}
-
-function Dokumente({ user }) {
-  const meineDoks = DEMO_DOKUMENTE.filter(d => d.userId === user.id || user.role === "admin");
-  const typColors = { lohn: COLORS.primary, vertrag: COLORS.accent };
-  const typLabels = { lohn: "Lohnabrechnung", vertrag: "Vertrag" };
-  return (
-    <div>
-      <h2 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 700 }}>Dokumente & Lohn</h2>
-      <Card>
-        {meineDoks.map(d => (
-          <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 14px", background: COLORS.neutral50, borderRadius: 10, marginBottom: 8, flexWrap: "wrap" }}>
-            <span style={{ color: COLORS.neutral500 }}>{Icon.doc}</span>
-            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{d.name}</div><div style={{ fontSize: 12, color: COLORS.neutral500 }}>{d.datum} · {d.groesse}</div></div>
-            <Badge color={typColors[d.typ]}>{typLabels[d.typ]}</Badge>
-            <Btn variant="ghost" small>⬇ Download</Btn>
-          </div>
-        ))}
-      </Card>
-    </div>
-  );
-}
-
-function Dashboard({ user, onNavigate }) {
-  const offeneVerts = DEMO_VERTRETUNGEN.filter(v => v.status === "gesucht" && v.anfrageVon !== user.id).length;
-  const meineKinder = DEMO_KINDER.filter(k => k.begleiter === user.id || user.role === "admin");
+function Dashboard({ user, isAdmin, onNavigate }) {
+  const [kinder, setKinder] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    supabase.from("kinder").select("*").eq("begleiter_id", user.id).then(({ data }) => { setKinder(data || []); setLoading(false); });
+  }, []);
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800 }}>Guten Tag, {user.name.split(" ")[0]} 👋</h2>
+        <h2 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800 }}>Guten Tag 👋</h2>
         <p style={{ margin: 0, color: COLORS.neutral500, fontSize: 14 }}>{new Date().toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
-        {[
-          { icon: "🧒", label: "Betreute Kinder", value: meineKinder.length, color: COLORS.primary },
-          { icon: "🔄", label: "Offene Vertretungen", value: offeneVerts, color: COLORS.accent },
-          { icon: "📁", label: "Dokumente", value: DEMO_DOKUMENTE.filter(d => d.userId === user.id).length, color: COLORS.neutral700 },
-        ].map(s => (
-          <Card key={s.label} style={{ padding: "16px 18px" }}>
-            <div style={{ fontSize: 24 }}>{s.icon}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: s.color, marginTop: 6 }}>{s.value}</div>
-            <div style={{ fontSize: 12, color: COLORS.neutral500 }}>{s.label}</div>
-          </Card>
-        ))}
-      </div>
-      <Card>
-        <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Meine Kinder</h3>
-        {meineKinder.map(k => (
-          <div key={k.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${COLORS.neutral100}` }}>
-            <div><span style={{ fontWeight: 700 }}>{k.kuerzel}</span><span style={{ fontSize: 13, color: COLORS.neutral500, marginLeft: 10 }}>{k.schule}</span></div>
-            <Btn variant="ghost" small onClick={() => onNavigate("nachweis")}>Nachweis →</Btn>
-          </div>
-        ))}
-      </Card>
-    </div>
-  );
-}
-
-function Team() {
-  return (
-    <div>
-      <h2 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 700 }}>Team</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 14 }}>
-        {DEMO_USERS.map(u => (
-          <Card key={u.id}>
-            <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 12 }}>
-              <Avatar initials={u.initials} size={44} />
-              <div><div style={{ fontWeight: 700, fontSize: 15 }}>{u.name}</div><div style={{ fontSize: 12, color: COLORS.neutral500 }}>{u.email}</div></div>
+      {isAdmin && (
+        <Card style={{ marginBottom: 16, background: COLORS.accentLight, border: `1.5px solid ${COLORS.accent}40` }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <span style={{ fontSize: 24 }}>⚙️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700 }}>Admin-Bereich</div>
+              <div style={{ fontSize: 13, color: COLORS.neutral600 }}>Mitarbeiter, Kinder & Budgets verwalten</div>
             </div>
-            <Badge color={u.role === "admin" ? COLORS.accent : COLORS.primary}>{u.role === "admin" ? "Admin" : "Begleiter/in"}</Badge>
-          </Card>
-        ))}
+            <Btn small variant="ghost" onClick={() => onNavigate("admin")}>Öffnen →</Btn>
+          </div>
+        </Card>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <Card style={{ padding: "16px 18px" }}><div style={{ fontSize: 24 }}>🧒</div><div style={{ fontSize: 26, fontWeight: 800, color: COLORS.primary, marginTop: 6 }}>{loading ? "..." : kinder.length}</div><div style={{ fontSize: 12, color: COLORS.neutral500 }}>Betreute Kinder</div></Card>
+        <Card style={{ padding: "16px 18px" }}><div style={{ fontSize: 24 }}>📋</div><div style={{ fontSize: 26, fontWeight: 800, color: COLORS.success, marginTop: 6 }}>{kinder.length}</div><div style={{ fontSize: 12, color: COLORS.neutral500 }}>Nachweise</div></Card>
       </div>
+      {!loading && kinder.length === 0 && (
+        <Card style={{ background: COLORS.primaryLight, border: `1.5px solid ${COLORS.primary}30` }}>
+          <div style={{ textAlign: "center", padding: "10px 0" }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🤝</div>
+            <div style={{ fontWeight: 700, color: COLORS.primary }}>Willkommen bei BegleitApp!</div>
+            <div style={{ fontSize: 13, color: COLORS.neutral500, marginTop: 4 }}>{isAdmin ? "Lege im Admin-Bereich Kinder und Mitarbeiter an." : "Der Admin weist dir bald Kinder zu."}</div>
+          </div>
+        </Card>
+      )}
+      {kinder.length > 0 && (
+        <Card>
+          <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Meine Kinder</h3>
+          {kinder.map(k => (
+            <div key={k.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderBottom: `1px solid ${COLORS.neutral100}` }}>
+              <div><span style={{ fontWeight: 700 }}>{k.kuerzel}</span><span style={{ fontSize: 13, color: COLORS.neutral500, marginLeft: 10 }}>{k.schule} · Kl. {k.klasse}</span></div>
+              <Btn variant="ghost" small onClick={() => onNavigate("nachweis")}>Nachweis →</Btn>
+            </div>
+          ))}
+        </Card>
+      )}
     </div>
   );
 }
-
-const NAV = [
-  { id: "dashboard", label: "Übersicht", icon: Icon.dashboard, roles: ["admin", "begleiter"] },
-  { id: "nachweis", label: "Nachweis", icon: Icon.nachweis, roles: ["admin", "begleiter"] },
-  { id: "vertretung", label: "Vertretungen", icon: Icon.swap, roles: ["admin", "begleiter"] },
-  { id: "dokumente", label: "Dokumente", icon: Icon.doc, roles: ["admin", "begleiter"] },
-  { id: "team", label: "Team", icon: Icon.team, roles: ["admin"] },
-];
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState("dashboard");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user || null); setLoading(false); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user || null); });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><Spinner /></div>;
   if (!user) return <LoginScreen onLogin={setUser} />;
-  const navItems = NAV.filter(n => n.roles.includes(user.role));
+
+  const isAdmin = user.email === ADMIN_EMAIL;
+  const NAV = [
+    { id: "dashboard", label: "Übersicht", icon: Icon.dashboard },
+    { id: "nachweis", label: "Nachweis", icon: Icon.nachweis },
+    ...(isAdmin ? [{ id: "admin", label: "Admin", icon: Icon.team }] : []),
+  ];
   const pages = {
-    dashboard: <Dashboard user={user} onNavigate={setPage} />,
+    dashboard: <Dashboard user={user} isAdmin={isAdmin} onNavigate={setPage} />,
     nachweis: <Betreuungsnachweis user={user} />,
-    vertretung: <Vertretungen user={user} />,
-    dokumente: <Dokumente user={user} />,
-    team: <Team />,
+    admin: isAdmin ? <AdminBereich /> : null,
   };
+
   return (
     <div style={{ minHeight: "100vh", background: COLORS.neutral50, fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div style={{ position: "sticky", top: 0, zIndex: 100, background: COLORS.white, borderBottom: `1px solid ${COLORS.neutral100}`, padding: "0 20px", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 20 }}>🤝</span>
           <span style={{ fontWeight: 800, fontSize: 17, color: COLORS.neutral900 }}>BegleitApp</span>
-          {user.role === "admin" && <Badge color={COLORS.accent}>Admin</Badge>}
+          {isAdmin && <Badge color={COLORS.accent}>Admin</Badge>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Avatar initials={user.initials} size={32} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: COLORS.neutral700 }}>{user.name}</span>
-          <button onClick={() => setUser(null)} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.neutral500, display: "flex" }}>{Icon.logout}</button>
+          <span style={{ fontSize: 12, color: COLORS.neutral500 }}>{user.email}</span>
+          <button onClick={() => supabase.auth.signOut()} style={{ background: "none", border: "none", cursor: "pointer", color: COLORS.neutral500, display: "flex" }}>{Icon.logout}</button>
         </div>
       </div>
       <div style={{ display: "flex", maxWidth: 1180, margin: "0 auto" }}>
-        <aside style={{ width: 210, flexShrink: 0, padding: "20px 10px", position: "sticky", top: 58, height: "calc(100vh - 58px)", overflowY: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
-          {navItems.map(n => (
+        <aside style={{ width: 200, flexShrink: 0, padding: "20px 10px", position: "sticky", top: 58, height: "calc(100vh - 58px)", display: "flex", flexDirection: "column", gap: 3 }}>
+          {NAV.map(n => (
             <button key={n.id} onClick={() => setPage(n.id)} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 14px", borderRadius: 9, border: "none", cursor: "pointer", width: "100%", textAlign: "left", background: page === n.id ? COLORS.primaryLight : "transparent", color: page === n.id ? COLORS.primary : COLORS.neutral700, fontWeight: page === n.id ? 700 : 500, fontSize: 14 }}>
               <span style={{ opacity: page === n.id ? 1 : 0.55 }}>{n.icon}</span>{n.label}
             </button>
           ))}
-          <div style={{ marginTop: "auto", padding: "14px 14px 6px", fontSize: 11, color: COLORS.neutral300, lineHeight: 1.8 }}>🔒 DSGVO-konform<br/>Pseudonymisiert</div>
+          <div style={{ marginTop: "auto", padding: "14px 14px 6px", fontSize: 11, color: COLORS.neutral300, lineHeight: 1.8 }}>🔒 DSGVO-konform<br/>🇩🇪 Daten in Europa<br/>Pseudonymisiert</div>
         </aside>
-        <main style={{ flex: 1, padding: "26px 18px 60px", minWidth: 0 }}>
-          {pages[page]}
-        </main>
+        <main style={{ flex: l
+      1, padding: "26px 18px 60px", minWidth: 0 }}>{pages[page]}</main>
       </div>
     </div>
   );
+}
+
+  
 }
